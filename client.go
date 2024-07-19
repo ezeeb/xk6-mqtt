@@ -222,7 +222,34 @@ func (m *MqttAPI) client(c sobek.ConstructorCall) *sobek.Object {
 	must(client.obj.DefineDataProperty(
 		"publish", rt.ToValue(client.Publish), sobek.FLAG_FALSE, sobek.FLAG_FALSE, sobek.FLAG_TRUE))
 	must(client.obj.DefineDataProperty(
-		"subscribe", rt.ToValue(client.Subscribe), sobek.FLAG_FALSE, sobek.FLAG_FALSE, sobek.FLAG_TRUE))
+		"subscribe", rt.ToValue(func(call sobek.FunctionCall) sobek.Value {
+			// enable backwards compatibility by supporting a string for a single topic and an array of strings for multiple topics
+			var topics []string
+			switch val := call.Argument(0).Export().(type) {
+			// old api
+			case string:
+				topics = []string{val}
+			// extended api to support multiple topics as string array
+			case []interface{}:
+				for _, v := range val {
+					if s, ok := v.(string); ok {
+						topics = append(topics, s)
+					} else {
+						common.Throw(rt, ErrInvalidArgument)
+						return nil
+					}
+				}
+			default:
+				common.Throw(rt, ErrInvalidArgument)
+				return nil
+			}
+
+			err := client.Subscribe(topics, byte(call.Argument(1).ToInteger()), uint(call.Argument(2).ToInteger()))
+			if err != nil {
+				common.Throw(rt, err)
+			}
+			return nil
+		}), sobek.FLAG_FALSE, sobek.FLAG_FALSE, sobek.FLAG_TRUE))
 
 	must(client.obj.DefineDataProperty(
 		"close", rt.ToValue(client.Close), sobek.FLAG_FALSE, sobek.FLAG_FALSE, sobek.FLAG_TRUE))

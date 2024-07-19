@@ -19,4 +19,6 @@ var (
 	ErrConsumeToken = errors.New("invalid consume token")
 	// ErrPublish publish to mqtt failed
 	ErrPublish = errors.New("publish failure")
+	// ErrInvalidArgument invalid argument
+	ErrInvalidArgument = errors.New("invalid argument")
 )

@@ -11,12 +11,12 @@ import (
 	"go.k6.io/k6/metrics"
 )
 
-// Subscribe to the given topic message will be received using addEventListener
+// Subscribe to the given topics message will be received using addEventListener
 func (c *client) Subscribe(
-	// Topic to consume messages from
-	topic string,
+	// Topics to consume messages from
+	topics []string,
 	// The QoS of messages
-	qos,
+	qos byte,
 	// timeout ms
 	timeout uint,
 ) error {
@@ -31,7 +31,20 @@ func (c *client) Subscribe(
 			c.messageChan <- msg
 		}(msg)
 	}
-	token := c.pahoClient.Subscribe(topic, byte(qos), messageCB)
+
+	var token paho.Token
+	if len(topics) == 1 {
+		// use subscribe for single topic
+		token = c.pahoClient.Subscribe(topics[0], qos, messageCB)
+	} else {
+		// use subscribe multiple for multiple topics
+		filters := make(map[string]byte)
+		for _, topic := range topics {
+			filters[topic] = qos
+		}
+		token = c.pahoClient.SubscribeMultiple(filters, messageCB)
+	}
+
 	if !token.WaitTimeout(time.Duration(timeout) * time.Millisecond) {
 		common.Throw(rt, ErrTimeout)
 		return ErrTimeout
